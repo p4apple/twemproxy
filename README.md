@@ -1,3 +1,47 @@
+
+
+# 编译手册
+
+
+## 优化点
+
+1 添加 SO_REUSEPORT 支持多进程绑定1个端口
+
+2 添加dns域名更新感知，在域名配置更新时重新连接redis客户端
+
+3 支持redis容灾，当后端redis服务器下线后，轮询域名下其它ip
+
+4 修复bug ， 因为dns解析导致epoll线程堵塞，大面积超时
+
+
+###  不支持：
+不支持 auto_eject_hosts: true 
+
+---
+
+##  编译流程
+
+- 正常编译：
+
+```
+$ autoreconf -fvi
+$ ./configure --prefix=$PWD/output 
+$ make
+$ make install
+
+```
+
+- Debug 编译：
+
+```
+$ autoreconf -fvi
+$  CFLAGS="-O0"  ./configure --enable-debug=full --prefix=$PWD/output 
+$ make
+$ make install
+```
+
+
+
 # twemproxy (nutcracker) [![Build Status](https://secure.travis-ci.org/twitter/twemproxy.png)](http://travis-ci.org/twitter/twemproxy)
 
 **twemproxy** (pronounced "two-em-proxy"), aka **nutcracker** is a fast and lightweight proxy for [memcached](http://www.memcached.org/) and [redis](http://redis.io/) protocol. It was built primarily to reduce the number of connections to the caching servers on the backend. This, together with protocol pipelining and sharding enables you to horizontally scale your distributed caching architecture.
