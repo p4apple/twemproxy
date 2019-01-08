@@ -2,12 +2,12 @@ alpha:
   listen: 127.0.0.1:22121
   hash: fnv1a_64
   distribution: ketama
-  auto_eject_hosts: true
+  auto_eject_hosts: false
   redis: true
-  server_retry_timeout: 2000
-  server_failure_limit: 1
+  timeout: 6
+  server_connections: 10
   servers:
-   - 127.0.0.1:6379:1
+   - redistest:6379:1
 
 beta:
   listen: 127.0.0.1:22122
@@ -18,10 +18,7 @@ beta:
   timeout: 400
   redis: true
   servers:
-   - 127.0.0.1:6380:1 server1
-   - 127.0.0.1:6381:1 server2
-   - 127.0.0.1:6382:1 server3
-   - 127.0.0.1:6383:1 server4
+   - rs21075.mars.grid.sina.com.cn:21075:1
 
 gamma:
   listen: 127.0.0.1:22123

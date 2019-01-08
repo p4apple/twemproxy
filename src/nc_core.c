@@ -65,6 +65,7 @@ core_ctx_create(struct instance *nci)
     ctx->max_nfd = 0;
     ctx->max_ncconn = 0;
     ctx->max_nsconn = 0;
+    ctx->dns_update_state = 0 ;
 
     /* parse and create configuration */
     ctx->cf = conf_create(nci->conf_filename);
@@ -124,6 +125,9 @@ core_ctx_create(struct instance *nci)
         nc_free(ctx);
         return NULL;
     }
+
+
+   start_dns_update(ctx);
 
     /* initialize proxy per server pool */
     status = proxy_init(ctx);
@@ -251,13 +255,18 @@ core_error(struct context *ctx, struct conn *conn)
     rstatus_t status;
     char type = conn->client ? 'c' : (conn->proxy ? 'p' : 's');
 
-    status = nc_get_soerror(conn->sd);
-    if (status < 0) {
-        log_warn("get soerr on %c %d failed, ignored: %s", type, conn->sd,
-                  strerror(errno));
-    }
-    conn->err = errno;
-
+    if (conn->need_to_reconnect == 1) {
+		conn->err = ECONNABORTED;
+		log_error("get soerr on %c %d failed, ignored: %s", type, conn->sd,
+				strerror(ECONNABORTED));
+	} else {
+		status = nc_get_soerror(conn->sd);
+		if (status < 0) {
+			log_warn("get soerr on %c %d failed, ignored: %s", type, conn->sd,
+					strerror(errno));
+		}
+		conn->err = errno;
+	}
     core_close(ctx, conn);
 }
 
@@ -348,7 +357,67 @@ core_core(void *arg, uint32_t events)
         }
     }
 
+    if (conn->need_to_reconnect == 1 ) {
+        core_error(ctx, conn);
+        return NC_ERROR;
+    }
+
     return NC_OK;
+}
+
+rstatus_t
+core_check_server_dns_update(struct context *ctx){
+
+	log_debug(LOG_VVERB, "start update connect !!! dns_update_state: %d" , ctx->dns_update_state  );
+
+	if(ctx->dns_update_state != 1 ){
+		return NC_OK;
+	}
+
+	ctx->dns_update_state = 2 ;
+	struct array *server_pool = & ctx->pool;
+	uint32_t i, j, npool, nserver;
+	npool = array_n(server_pool);
+	for (i = 0; i < npool; i++) {
+		struct server_pool *sp = array_get(server_pool, i);
+		nserver = array_n(&sp->server);
+
+		for (j = 0; j < nserver; j++) {
+			struct server * srv = array_get(&sp->server, j);
+			if( srv->dns_update_state == 1  ){
+				srv->dns_update_state = 2 ;
+
+				if(srv->dns_info_pool != NULL){
+				nc_free_addr_info(&srv->dns_info_pool);
+				srv->dns_info_num = 0 ;
+				}
+				srv->dns_info_pool = srv->last_dns_info_pool ;
+				srv->dns_info_num = srv->last_dns_info_num ;
+				srv->last_dns_info_pool  = NULL ;
+				srv->last_dns_info_num  = 0 ;
+				log_error( "set reconnect server: %s:%d,num:%d",srv->addrstr.data , srv->port  , srv->ns_conn_q );
+
+				//log_debug(LOG_VVERB, " update connect %s : %d : %d " , srv->addrstr.data , srv->port  , srv->ns_conn_q );
+
+				//nconnect = srv->ns_conn_q  ;
+				struct conn * conn = NULL ;
+				struct conn * nconn = NULL ;
+				for(conn =TAILQ_FIRST(&srv->s_conn_q) ; conn != NULL ; conn = nconn ){
+					nconn = TAILQ_NEXT(conn,conn_tqe);
+					conn->need_to_reconnect = 1 ;
+
+					log_debug(LOG_VVERB, "reconncet nconn %d %d" , conn->family , conn->addrlen );
+
+				}
+				srv->dns_update_state = 0;
+			}
+
+		}
+	}
+	(__sync_synchronize());
+
+	ctx->dns_update_state = 0;
+	return NC_OK;
 }
 
 rstatus_t
@@ -363,6 +432,9 @@ core_loop(struct context *ctx)
 
     core_timeout(ctx);
 
+    if( ctx->dns_update_state == 1){
+    core_check_server_dns_update(ctx);
+    }
     stats_swap(ctx->stats);
 
     return NC_OK;

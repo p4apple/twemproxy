@@ -89,6 +89,8 @@ struct conn {
     unsigned            done:1;          /* done? aka close? */
     unsigned            redis:1;         /* redis? */
     unsigned            authenticated:1; /* authenticated? */
+
+    uint32_t			need_to_reconnect ;
 };
 
 TAILQ_HEAD(conn_tqh, conn);

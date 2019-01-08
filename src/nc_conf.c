@@ -123,6 +123,8 @@ conf_server_init(struct conf_server *cs)
     cs->weight = 0;
 
     memset(&cs->info, 0, sizeof(cs->info));
+    cs->dns_info_num = 0 ;
+    cs->dns_info_pool = NULL ;
 
     cs->valid = 0;
 
@@ -135,6 +137,8 @@ conf_server_deinit(struct conf_server *cs)
     string_deinit(&cs->pname);
     string_deinit(&cs->name);
     string_deinit(&cs->addrstr);
+    cs->dns_info_num = 0 ;
+    nc_free_addr_info(&cs->dns_info_pool);
     cs->valid = 0;
     log_debug(LOG_VVERB, "deinit conf server %p", cs);
 }
@@ -167,6 +171,20 @@ conf_server_each_transform(void *elem, void *data)
 
     s->next_retry = 0LL;
     s->failure_count = 0;
+    s->retry_connection_count = 0 ;
+
+    s->dns_update_state = 0 ;
+    s->dns_info_num = cs->dns_info_num ;
+    s->dns_info_pool = nc_alloc( sizeof( struct sockinfo) * cs->dns_info_num   ) ;
+    nc_memcpy(s->dns_info_pool  ,  cs->dns_info_pool , sizeof( struct sockinfo) * cs->dns_info_num  );
+    int i;
+    for( i  = 0 ; i < cs->dns_info_num    ; i++ ){
+    	print_log_addr_info( cs->dns_info_pool  + i );
+    }
+    s->last_dns_info_num = 0 ;
+    s->last_dns_info_pool = NULL ;
+
+
 
     log_debug(LOG_VERB, "transform to server %"PRIu32" '%.*s'",
               s->idx, s->pname.len, s->pname.data);
@@ -1663,6 +1681,26 @@ conf_add_server(struct conf *cf, struct command *cmd, void *conf)
      * created, which could either be the first time or every time
      * the server gets re-added to the pool after an auto ejection
      */
+    /*
+     * wangxin  2018 10 10
+     *
+     */
+    status = nc_resolve(&field->addrstr, field->port, &field->info);
+    if (status != NC_OK) {
+        return "The address resolution has error !";
+    }
+
+	if (field->addrstr.data[0] != '/') {
+		status = nc_get_addr_info(&field->addrstr, field->port,
+				&field->dns_info_pool, &field->dns_info_num);
+		if (status <= 0) {
+			return "The get_dns_info has error !";
+		}
+	}else{
+		field->dns_info_pool = NULL ;
+		field->dns_info_num = 0 ;
+	}
+
 
     field->valid = 1;
 

@@ -126,6 +126,9 @@ _conn_get(void)
     conn->owner = NULL;
 
     conn->sd = -1;
+    conn->family = 0 ;
+    conn->addrlen = 0 ;
+    conn->addr = nc_alloc(sizeof( (struct sockinfo  *)NULL)->addr );
     /* {family, addrlen, addr} are initialized in enqueue handler */
 
     TAILQ_INIT(&conn->imsg_q);
@@ -157,6 +160,7 @@ _conn_get(void)
     conn->done = 0;
     conn->redis = 0;
     conn->authenticated = 0;
+    conn->need_to_reconnect = 0 ;
 
     ntotal_conn++;
     ncurr_conn++;
@@ -204,7 +208,7 @@ conn_get(void *owner, bool client, bool redis)
         conn->dequeue_outq = req_client_dequeue_omsgq;
         conn->post_connect = NULL;
         conn->swallow_msg = NULL;
-
+        conn->need_to_reconnect = 0 ;
         ncurr_cconn++;
     } else {
         /*
@@ -237,7 +241,7 @@ conn_get(void *owner, bool client, bool redis)
           conn->swallow_msg = memcache_swallow_msg;
         }
     }
-
+    	conn->need_to_reconnect = 0 ;
     conn->ref(conn, owner);
     log_debug(LOG_VVERB, "get conn %p client %d", conn, conn->client);
 
@@ -289,6 +293,9 @@ static void
 conn_free(struct conn *conn)
 {
     log_debug(LOG_VVERB, "free conn %p", conn);
+    if( conn->addr != NULL){
+    	nc_free(conn->addr);
+    }
     nc_free(conn);
 }
 

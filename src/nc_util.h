@@ -213,4 +213,8 @@ char *nc_unresolve_addr(struct sockaddr *addr, socklen_t addrlen);
 char *nc_unresolve_peer_desc(int sd);
 char *nc_unresolve_desc(int sd);
 
+int nc_get_addr_info( struct string *name,int port ,struct sockinfo ** si , int * sockinfo_num  );
+int nc_free_addr_info(struct sockinfo ** si) ;
+void print_log_addr_info(struct sockinfo * si );
+
 #endif

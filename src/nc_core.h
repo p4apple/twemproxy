@@ -113,6 +113,7 @@ struct event_base;
 #include <nc_util.h>
 #include <event/nc_event.h>
 #include <nc_stats.h>
+#include <nc_dns_update.h>
 #include <nc_mbuf.h>
 #include <nc_message.h>
 #include <nc_connection.h>
@@ -131,6 +132,7 @@ struct context {
     uint32_t           max_nfd;     /* max # files */
     uint32_t           max_ncconn;  /* max # client connections */
     uint32_t           max_nsconn;  /* max # server connections */
+    volatile uint32_t		   dns_update_state;
 };
 
 

@@ -75,6 +75,18 @@ nc_set_reuseaddr(int sd)
     return setsockopt(sd, SOL_SOCKET, SO_REUSEADDR, &reuse, len);
 }
 
+int
+nc_set_reuseport(int sd)
+{
+    int reuse;
+    socklen_t len;
+
+    reuse = 1;
+    len = sizeof(reuse);
+
+    return setsockopt(sd, SOL_SOCKET, SO_REUSEPORT, &reuse, len);
+}
+
 /*
  * Disable Nagle algorithm on TCP socket.
  *
@@ -459,6 +471,93 @@ int64_t
 nc_msec_now(void)
 {
     return nc_usec_now() / 1000LL;
+}
+
+int
+nc_get_addr_info( struct string *name,int port ,struct sockinfo ** si , int * sockinfo_num  ){
+
+	int status, addinfo_idx;
+	struct addrinfo *ai, *cai; /* head and current addrinfo */
+	struct addrinfo hints;
+	char *node, service[NC_UINTMAX_MAXLEN];
+	*sockinfo_num = 0 ;
+	*si = NULL;
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_flags = AI_NUMERICSERV;
+    hints.ai_family = AF_UNSPEC;     /* AF_INET or AF_INET6 */
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = 0;
+    hints.ai_addrlen = 0;
+    hints.ai_addr = NULL;
+    hints.ai_canonname = NULL;
+
+    if (name != NULL) {
+        node = (char *)name->data;
+    } else {
+        /*
+         * If AI_PASSIVE flag is specified in hints.ai_flags, and node is
+         * NULL, then the returned socket addresses will be suitable for
+         * bind(2)ing a socket that will accept(2) connections. The returned
+         * socket address will contain the wildcard IP address.
+         */
+        node = NULL;
+        hints.ai_flags |= AI_PASSIVE;
+    }
+
+    nc_snprintf(service, NC_UINTMAX_MAXLEN, "%d", port);
+
+    status = getaddrinfo(node, service, &hints, &ai);
+    if (status != 0) {
+    	log_error("Failed to call getaddrinfo functio '%s' service '%s' failed: %s",
+                  node, service, gai_strerror(status));
+        return -1;
+    }
+
+
+    for (cai = ai; cai != NULL; cai = cai->ai_next) {
+    	(*sockinfo_num) ++ ;
+    }
+    if( *sockinfo_num == 0 ){
+    	*si = NULL ;
+    	return 0 ;
+    }
+    *si = nc_alloc((*sockinfo_num)  * sizeof(struct sockinfo) );
+    if( *si == NULL){
+    	return -1 ;
+    }
+   ;
+    for (  addinfo_idx = 0 ,cai = ai;
+    		cai != NULL && addinfo_idx < (*sockinfo_num);
+    		cai = cai->ai_next , addinfo_idx++  ) {
+        (*si)[addinfo_idx].family = cai->ai_family;
+        (*si)[addinfo_idx].addrlen = cai->ai_addrlen;
+        nc_memcpy(&(*si)[addinfo_idx].addr, cai->ai_addr,
+        		(*si)[addinfo_idx].addrlen);
+    }
+
+    freeaddrinfo(ai);
+    return *sockinfo_num;
+}
+
+int
+nc_free_addr_info(struct sockinfo ** si){
+	if( *si != NULL)
+	nc_free(*si);
+	*si = NULL ;
+}
+
+void print_log_addr_info(struct sockinfo * si ){
+
+	char * outbuff = nc_alloc( 1024);
+	int i ;
+	int write_offset = 0  ;
+
+	for(i = 0 ; i < si->addrlen ; i++  ){
+		write_offset += _scnprintf( outbuff+write_offset   , 1024 - write_offset  , "%d:" , ((unsigned char  *)(&(*si).addr))[i] );
+	}
+	log_error("si:%d %d %s " , si->family , si->addrlen , outbuff );
+	nc_free(outbuff);
 }
 
 static int

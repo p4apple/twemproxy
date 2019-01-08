@@ -82,6 +82,14 @@ struct server {
 
     int64_t            next_retry;    /* next retry time in usec */
     uint32_t           failure_count; /* # consecutive failures */
+    uint32_t           retry_connection_count; /* # retry connection count */
+    volatile uint32_t		   dns_update_state; 	/* */
+    uint32_t		   dns_info_num; 		/* */
+    struct sockinfo    *dns_info_pool; 		/* */
+    uint32_t		   last_dns_info_num; 	/* */
+    struct sockinfo    *last_dns_info_pool;	/* */
+
+
 };
 
 struct server_pool {

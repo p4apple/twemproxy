@@ -99,6 +99,7 @@ proxy_reuse(struct conn *p)
     case AF_INET:
     case AF_INET6:
         status = nc_set_reuseaddr(p->sd);
+        status = nc_set_reuseport(p->sd);
         break;
 
     case AF_UNIX:

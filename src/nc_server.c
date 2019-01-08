@@ -27,16 +27,31 @@ server_resolve(struct server *server, struct conn *conn)
 {
     rstatus_t status;
 
-    status = nc_resolve(&server->addrstr, server->port, &server->info);
-    if (status != NC_OK) {
-        conn->err = EHOSTDOWN;
-        conn->done = 1;
-        return;
-    }
+    //status = nc_resolve(&server->addrstr, server->port, &server->info);
+    //if (status != NC_OK) {
+    //    conn->err = EHOSTDOWN;
+    //    conn->done = 1;
+    //    return;
+   // }
 
+
+    uint32_t  dns_index = 0 ;
+    if( server->dns_info_num  != 0 ){
+    	 dns_index  =  server->retry_connection_count %  server->dns_info_num  ;
+    }
+    server->retry_connection_count ++ ;
+    if( server->dns_info_num >= 1 && server->dns_info_pool != NULL ){
+        conn->family = server->dns_info_pool[ dns_index ].family;
+        conn->addrlen = server->dns_info_pool[dns_index].addrlen;
+        nc_memcpy(conn->addr , &(server->dns_info_pool[dns_index].addr), server->dns_info_pool[dns_index].addrlen);
+        //print_log_addr_info(server->dns_info_pool);
+
+    }else {
     conn->family = server->info.family;
     conn->addrlen = server->info.addrlen;
-    conn->addr = (struct sockaddr *)&server->info.addr;
+    nc_memcpy(conn->addr , &server->info.addr, server->info.addrlen);
+    }
+    //conn->addr = (struct sockaddr *)&server->info.addr;
 }
 
 void

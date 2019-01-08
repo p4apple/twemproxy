@@ -72,6 +72,8 @@ struct conf_server {
     int             port;       /* port */
     int             weight;     /* weight */
     struct sockinfo info;       /* connect socket info */
+    int				dns_info_num ;
+    struct sockinfo * dns_info_pool ;
     unsigned        valid:1;    /* valid? */
 };
 
